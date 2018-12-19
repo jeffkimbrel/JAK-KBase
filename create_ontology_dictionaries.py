@@ -184,15 +184,17 @@ def get_EC_RXNs():
 
 def get_METACYC_RXNs():
 
+    # get_METACYC_RXNs() does not have an option to pull from an online database, only from the local MetaCycReactionsFull.xml file
+
     metacyc_count = 0
     metacyc_ontologyDictionary_filename = 'METACYC_ontologyDictionary.json'
 
     # convert to json and upload
     with open('MetaCycReactionsFull.xml') as fd:
         doc = xmltodict.parse(fd.read())
-    with open('test_metacyc.json', 'w') as outfile:
+    with open('metacyc_temp.json', 'w') as outfile:
         json.dump(doc, outfile, indent = 2)
-    metacyc_raw = json.loads(open("test_metacyc.json", "r").read() )
+    metacyc_raw = json.loads(open("metacyc_temp.json", "r").read() )
 
     # get metacyc version number
     metacyc_version = metacyc_raw['ptools-xml']['@ptools-version']
@@ -239,12 +241,13 @@ def get_METACYC_RXNs():
 
         nameList = list(set(nameList))
 
-        # fix unicode
+        # fix unicode, but doesn't currently work
         cleanNameList = []
         for name in nameList:
             #name = name.replace("&beta;", "β")
             cleanNameList.append(name)
 
+        # save the first item from the name list as the name, the rest are synonyms
         if len(cleanNameList) > 0:
             name = cleanNameList.pop(0)
         else:
