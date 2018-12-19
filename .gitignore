@@ -4,3 +4,5 @@ enzyme.dat
 enzclass.txt
 kegg_reactions.txt
 MetaCycReactionsFull.xml
+*.faa
+*.txt
