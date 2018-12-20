@@ -9,8 +9,10 @@ import argparse
 parser = argparse.ArgumentParser(description = '', formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('-n', '--namespace',
-    default = "KO",
-    required = False)
+    required = True)
+
+parser.add_argument('-o', '--out',
+    required = True)
 
 parser.add_argument('-g', '--genome',
     required = True)
@@ -51,7 +53,7 @@ class Gene:
             if id in ontology_dict:
                 valid = 1
                 name = ontology_dict[id]
-                print(id, valid, name, sep = "\t")
+                #print(id, valid, name, sep = "\t")
             else:
                 name = ""
 
@@ -61,6 +63,14 @@ class Gene:
                             }
 
             self.ontologyChecked.append(ontologyCheck)
+
+    def hasValidAnnotations(self):
+        valid = False
+        if len(self.ontologyChecked) > 0:
+            for annotation in self.ontologyChecked:
+                if annotation['valid'] == 1:
+                    valid = True
+        return(valid)
 
 
 ## FUNCTIONS ###################################################################
@@ -75,6 +85,8 @@ def ontology_dictionary_to_dict():
     # KO
     if args.namespace == "KO":
         ontology_dict_raw = json.loads(open("KEGG_KO_ontologyDictionary.json", "r").read() )
+    elif args.namespace == "RXN":
+        ontology_dict_raw = json.loads(open("KEGG_RXN_ontologyDictionary.json", "r").read() )
 
     # !---> add other ontology namespaces here <---! #
 
@@ -106,6 +118,18 @@ def annotations_to_genes():
                     annotation = elements[1]
                     genes[geneID].addAnnotation(annotation)
 
+def add_ontology_event(genome_dict):
+    genome_dict['ontology_events'].append(
+        {
+            "id"             : args.namespace,
+            "method"         : "TEST",
+            "method_version" : "TEST",
+            "ontology_ref"    : "TEST",
+            "timestamp"      : timestamp
+        }
+    )
+
+    return(genome_dict)
 
 ## MAIN ########################################################################
 
@@ -115,17 +139,58 @@ def main():
     genome_dict = genome_to_dict()
     ontology_dict = ontology_dictionary_to_dict()
 
+    genome_dict = add_ontology_event(genome_dict)
+    current_ontology_event = len(genome_dict['ontology_events']) - 1
+
     # read annotations and create non-validated gene classes
     annotations_to_genes()
 
     for gene in genes:
-        print("\n---", gene, "---")
-        print(genes[gene].__dict__)
-
         genes[gene].validateGeneID(genome_dict)
         genes[gene].validateAnnotationID(ontology_dict)
 
-        print(genes[gene].__dict__)
+    # add to genome dict
+    for feature in genome_dict['features']:
 
+        geneID = feature['id']
+
+        if geneID in genes:
+            if genes[geneID].hasValidAnnotations() == True:
+
+                # create some things if they don't exist
+                if 'ontology_terms' not in feature:
+                    feature['ontology_terms'] = {}
+
+                #print(feature['ontology_terms'])
+
+                if args.namespace not in feature['ontology_terms']:
+                    feature['ontology_terms'][args.namespace] = {}
+
+                for annotation in genes[geneID].ontologyChecked:
+                    if annotation['valid'] == 1:
+
+                        # add to ontologies present
+                        if args.namespace not in genome_dict['ontologies_present']:
+                            genome_dict['ontologies_present'][args.namespace] = {}
+                        if annotation['id'] not in genome_dict['ontologies_present'][args.namespace]:
+                            genome_dict['ontologies_present'][args.namespace][annotation['id']] = annotation['name']
+
+
+                        if annotation['id'] not in feature['ontology_terms'][args.namespace]:
+                            feature['ontology_terms'][args.namespace][annotation['id']] = [current_ontology_event]
+                        else:
+
+                            feature['ontology_terms'][args.namespace][annotation['id']].append(current_ontology_event)
+
+
+    with open(args.out, 'w') as outfile:
+        json.dump(genome_dict, outfile, indent = 2)
+
+    # sort ontologies present
+    for ontology in genome_dict['ontologies_present']:
+        genome_dict['ontologies_present'][ontology] = sorted(genome_dict['ontologies_present'][ontology].keys())
+
+    for pos, event in enumerate(genome_dict['ontology_events']):
+        print(pos, event)
 
 main()
