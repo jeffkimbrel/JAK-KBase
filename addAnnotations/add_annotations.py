@@ -8,17 +8,10 @@ import argparse
 
 parser = argparse.ArgumentParser(description = '', formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('-n', '--namespace',
-    required = True)
-
-parser.add_argument('-o', '--out',
-    required = True)
-
-parser.add_argument('-g', '--genome',
-    required = True)
-
-parser.add_argument('-a', '--annotations',
-    required = True)
+parser.add_argument('-n', '--namespace', required = True)
+parser.add_argument('-o', '--out', required = True)
+parser.add_argument('-g', '--genome', required = True)
+parser.add_argument('-a', '--annotations', required = True)
 
 args = parser.parse_args()
 
@@ -26,7 +19,6 @@ args = parser.parse_args()
 ## MISC ########################################################################
 
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-
 
 ## CLASSES #####################################################################
 
@@ -53,10 +45,11 @@ class Gene:
             if id in ontology_dict:
                 valid = 1
                 name = ontology_dict[id]
-                #print(id, valid, name, sep = "\t")
+
             else:
                 name = ""
 
+            # adds valid and not valid annotations for recordkeeping
             ontologyCheck = {"id"    : id,
                              "name"  : name,
                              "valid" : valid
@@ -124,12 +117,34 @@ def add_ontology_event(genome_dict):
             "id"             : args.namespace,
             "method"         : "TEST",
             "method_version" : "TEST",
-            "ontology_ref"    : "TEST",
+            "ontology_ref"   : "TEST",
             "timestamp"      : timestamp
         }
     )
 
     return(genome_dict)
+
+def summarize(genes):
+
+    validGeneCount = 0
+    invalidGenes = []
+    validOntologyTermCount = 0
+    invalidOntologyTerms = []
+
+    for gene in genes:
+        if genes[gene].valid == 1:
+            validGeneCount += 1
+        elif genes[gene].valid == 0:
+            invalidGenes.append(genes[gene].id)
+
+        for annotation in genes[gene].ontologyChecked:
+            if annotation['valid'] == 1:
+                validOntologyTermCount += 1
+            elif annotation['valid'] == 0:
+                invalidOntologyTerms.append(annotation['id'])
+
+    print(validGeneCount, len(invalidGenes), str(invalidGenes), sep = "\t")
+    print(validOntologyTermCount, len(invalidOntologyTerms), str(invalidOntologyTerms), sep = "\t")
 
 ## MAIN ########################################################################
 
@@ -161,8 +176,6 @@ def main():
                 if 'ontology_terms' not in feature:
                     feature['ontology_terms'] = {}
 
-                #print(feature['ontology_terms'])
-
                 if args.namespace not in feature['ontology_terms']:
                     feature['ontology_terms'][args.namespace] = {}
 
@@ -172,16 +185,14 @@ def main():
                         # add to ontologies present
                         if args.namespace not in genome_dict['ontologies_present']:
                             genome_dict['ontologies_present'][args.namespace] = {}
+
                         if annotation['id'] not in genome_dict['ontologies_present'][args.namespace]:
                             genome_dict['ontologies_present'][args.namespace][annotation['id']] = annotation['name']
-
 
                         if annotation['id'] not in feature['ontology_terms'][args.namespace]:
                             feature['ontology_terms'][args.namespace][annotation['id']] = [current_ontology_event]
                         else:
-
                             feature['ontology_terms'][args.namespace][annotation['id']].append(current_ontology_event)
-
 
     with open(args.out, 'w') as outfile:
         json.dump(genome_dict, outfile, indent = 2)
@@ -190,7 +201,9 @@ def main():
     for ontology in genome_dict['ontologies_present']:
         genome_dict['ontologies_present'][ontology] = sorted(genome_dict['ontologies_present'][ontology].keys())
 
-    for pos, event in enumerate(genome_dict['ontology_events']):
-        print(pos, event)
+    #for pos, event in enumerate(genome_dict['ontology_events']):
+    #    print(pos, event)
+
+    summarize(genes)
 
 main()
