@@ -201,8 +201,8 @@ def main():
     for ontology in genome_dict['ontologies_present']:
         genome_dict['ontologies_present'][ontology] = sorted(genome_dict['ontologies_present'][ontology].keys())
 
-    #for pos, event in enumerate(genome_dict['ontology_events']):
-    #    print(pos, event)
+    for pos, event in enumerate(genome_dict['ontology_events']):
+        print(pos, event)
 
     summarize(genes)
 
