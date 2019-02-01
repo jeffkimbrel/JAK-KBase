@@ -4,3 +4,8 @@ enzclass.txt
 kegg_reactions.txt
 MetaCycReactionsFull.xml
 *.faa
+ontologyDictionaries/kegg_orthologs.txt
+addAnnotations/PT3_2.Spades.prokka.kegg_rxn.txt
+addAnnotations/pprint.json
+addAnnotations/marinobacter_prokka.json
+addAnnotations/KEGG_RXN_ontologyDictionary.json
