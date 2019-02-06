@@ -47,7 +47,6 @@ def translate(term, translation_dict):
 
     return(translations)
 
-
 def get_ontology_events(genome_dict):
     '''
     returns dict with ontology information. If description is not found, adds the method instead.
@@ -119,11 +118,19 @@ def convert_terms_to_modelseed(genome_dict, ontology_events):
 
     return(ontology_events)
 
-def cumulative_sum_curve(ontology_events, type):
+def summarize_ontology_events(ontology_events):
+    print("DESCRIPTION", "GENES", "TERMS", "RXNs", sep = "\t")
+    for ontology in ontology_events:
+        print(ontology_events[ontology]['description'], len(ontology_events[ontology]['genes']), len(ontology_events[ontology]['terms']), len(ontology_events[ontology]['modelseed']), sep = "\t")
+
+def cumulative_sum_curve(ontology_events, type, compare_to):
+
+    csc = open ('csc.txt', 'w')
 
     working = ontology_events.copy()
     cumulative_collection = [] # collection of all previously found items
-    print("DESCRIPTION", "ADDED", "OVERLAP", "BUFFER", "TOTAL", sep = "\t")
+    csc.write("DESCRIPTION\tADDED\tOVERLAP\tBUFFER\tTOTAL\n")
+
     while len(working) > 0 :
 
         # iterate through, removing most abundant and moving those terms to the collection list
@@ -131,32 +138,48 @@ def cumulative_sum_curve(ontology_events, type):
         abundant_value = 0
         abundant_already_added = 0
 
-        for ontology in working:
+        if compare_to == None:
+            for ontology in working:
 
-            # remove those already found in collection
-            remaining = set(working[ontology][type]) - set(cumulative_collection)
-            already_present =  set(cumulative_collection) & set(working[ontology][type])
+                # remove those already found in collection
+                remaining = set(working[ontology][type]) - set(cumulative_collection)
+                already_present =  set(cumulative_collection) & set(working[ontology][type])
 
-            if len(remaining) > abundant_value:
-                abundant_value = len(remaining)
-                abundant_key = ontology
-                abundant_already_added = len(already_present)
+                if len(remaining) > abundant_value:
+                    abundant_value = len(remaining)
+                    abundant_key = ontology
+                    abundant_already_added = len(already_present)
+
+        else:
+            remaining = set(working[compare_to][type]) - set(cumulative_collection)
+            already_present =  set(cumulative_collection) & set(working[compare_to][type])
+
+            abundant_value = len(remaining)
+            abundant_key = compare_to
+            abundant_already_added = len(already_present)
+
+            compare_to = None
 
         # remove most abundant
         if abundant_key == "": # if there are ontology events with 0 counts for this type
             for loser in working:
-                print(working[loser]['description'], 0, len(working[loser][type]), len(cumulative_collection) - len(working[loser][type]), len(cumulative_collection), sep = "\t")
+                csc.write(working[loser]['description'] + "\t" + str(0) + "\t" + str(len(working[loser][type])) + "\t" + str(len(cumulative_collection) - len(working[loser][type])) + "\t" + str(len(cumulative_collection)) + "\n")
             break
 
         else:
-            print(ontology_events[abundant_key]['description'],
-                  len(working[abundant_key][type]) - abundant_already_added,
-                  abundant_already_added,
-                  len(cumulative_collection) - abundant_already_added,
-                  len(cumulative_collection) + len(working[abundant_key][type]) - abundant_already_added, sep = "\t")
+            csc.write(ontology_events[abundant_key]['description'] + "\t" +
+                  str(len(working[abundant_key][type]) - abundant_already_added) + "\t" +
+                  str(abundant_already_added)  + "\t" +
+                  str(len(cumulative_collection) - abundant_already_added)  + "\t" +
+                  str(len(cumulative_collection) + len(working[abundant_key][type]) - abundant_already_added) + "\n")
 
             cumulative_collection = set(cumulative_collection) | set(working[abundant_key][type])
             working.pop(abundant_key)
+
+    csc.close()
+
+def calculate_overlaps(ontology_events, type):
+    print(ontology_events)
 
 def main():
     genome_dict = get_genome()
@@ -164,14 +187,11 @@ def main():
     ontology_events = get_genes_and_terms(genome_dict, ontology_events)
     ontology_events = convert_terms_to_modelseed(genome_dict, ontology_events)
 
-    # for ontology in ontology_events:
-    #     print("---")
-    #     print(ontology_events[ontology]['modelseed'])
+    # make comparisons
+    summarize_ontology_events(ontology_events)
 
-
-
-
-    cumulative_sum_curve(ontology_events, 'terms')
+    #cumulative_sum_curve(ontology_events, 'modelseed', 0)
+    #calculate_overlaps(ontology_events, 'modelseed')
 
 ## RUN
 
