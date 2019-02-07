@@ -18,10 +18,8 @@ args = parser.parse_args()
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 translation_locations = {'ec'     : 'KBaseOntology.OntologyTranslation.EBI_EC.ModelSEED.json',
-                         'keggro' : 'KBaseOntology.OntologyTranslation.KEGG_RXN.ModelSEED.json'}
-
-
-
+                         'keggro' : 'KBaseOntology.OntologyTranslation.KEGG_RXN.ModelSEED.json',
+                         'metacyc' : 'KBaseOntology.OntologyTranslation.Metacyc_RXN.ModelSEED.json'}
 
 ## FUNCTIONS ###################################################################
 
@@ -36,6 +34,10 @@ def get_ec_to_modelseed():
 def get_keggro_to_modelseed():
     keggro_to_modelseed = json.loads(open(translation_locations['keggro'], "r").read() )
     return(keggro_to_modelseed['translation'])
+
+def get_metacyc_to_modelseed():
+    metacyc_to_modelseed = json.loads(open(translation_locations['metacyc'], "r").read() )
+    return(metacyc_to_modelseed['translation'])
 
 def translate(term, translation_dict):
 
@@ -95,6 +97,16 @@ def convert_terms_to_modelseed(genome_dict, ontology_events):
 
         elif ontology_events[ontology]['id'] == 'keggko':
             pass
+
+        elif ontology_events[ontology]['id'] == 'metacyc':
+            metacyc_to_modelseed = get_metacyc_to_modelseed()
+
+            for term in ontology_events[ontology]['terms']:
+                if term.startswith("META:"):
+                    term = term.replace('META:', '')
+
+                translations = translate(term, metacyc_to_modelseed)
+                ontology_events[ontology]['modelseed'] += translations
 
         elif ontology_events[ontology]['id'] == 'keggro':
             keggro_to_modelseed = get_keggro_to_modelseed()
@@ -190,7 +202,7 @@ def main():
     # make comparisons
     summarize_ontology_events(ontology_events)
 
-    #cumulative_sum_curve(ontology_events, 'modelseed', 0)
+    cumulative_sum_curve(ontology_events, 'terms', 0)
     #calculate_overlaps(ontology_events, 'modelseed')
 
 ## RUN
