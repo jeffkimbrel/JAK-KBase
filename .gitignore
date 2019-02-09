@@ -9,3 +9,9 @@ addAnnotations/PT3_2.Spades.prokka.kegg_rxn.txt
 addAnnotations/pprint.json
 addAnnotations/marinobacter_prokka.json
 addAnnotations/KEGG_RXN_ontologyDictionary.json
+*.png
+compareAnnotations/.DS_Store
+.DS_Store
+compareAnnotations/temp.txt
+compareAnnotations/csc.txt
+compareAnnotations/csc.txt
