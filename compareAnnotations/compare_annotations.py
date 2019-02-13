@@ -41,6 +41,13 @@ class RXN:
         self.rxn = rxn
         self.translations = []
 
+    def add(self, ontology_event, gene, type, term):
+        self.translations.append({"ontology_event" : ontology_event,
+                                           "gene" : gene,
+                                           "type" : type,
+                                           "term" : term
+                               })
+
 ## FUNCTIONS ###################################################################
 
 def get_genome():
@@ -62,7 +69,6 @@ def get_translations2():
             for entry in ontology_translations['translation'][term]['equiv_terms']:
                 rxn = entry['equiv_term']
                 translations[type][term] = rxn
-
 
     return(translations)
 
@@ -94,24 +100,6 @@ def get_ontology_events(genome_dict):
 
     return ontology_events
 
-def get_genes_and_terms(genome_dict, ontology_events):
-
-    for ontology in ontology_events:
-        ontology_events[ontology]['genes'] = []
-        ontology_events[ontology]['terms'] = []
-
-    for feature in genome_dict['features']:
-        if 'ontology_terms' in feature:
-            for term in feature['ontology_terms']:
-                for entry in feature['ontology_terms'][term]:
-                    for ont in feature['ontology_terms'][term][entry]:
-                        if feature['id'] not in ontology_events[ont]['genes']:
-                            ontology_events[ont]['genes'].append(feature['id'])
-                        if entry not in ontology_events[ont]['terms']:
-                            ontology_events[ont]['terms'].append(entry)
-
-    return ontology_events
-
 def get_genes_and_terms2(genome_dict, genes):
     for feature in genome_dict['features']:
         gene = feature['id']
@@ -127,70 +115,147 @@ def get_genes_and_terms2(genome_dict, genes):
 
     return(genes)
 
-def search_for_ec(line):
-    ecList = re.findall(r"\(*[0-9]+\.[0-9\-]+\.[0-9\-]+\.[0-9\-]", line)
-    return(ecList)
+def get_translations(genes, rxns, genome_dict, translations, getECs = True):
+    rxns['None'] = RXN('None')
 
-def convert_terms_to_modelseed(genome_dict, ontology_events):
-    for ontology in ontology_events:
-        ontology_events[ontology]['modelseed'] = []
+    for gene in genes:
+        for event in genes[gene].annotations:
+            term = event['term']
+            type = event['type']
 
-        if ontology_events[ontology]['id'] in ['ec', 'keggro', 'keggko']:
-            x_to_modelseed = get_translations(ontology_events[ontology]['id'])
-            for term in ontology_events[ontology]['terms']:
-                translations = translate(term, x_to_modelseed)
-                ontology_events[ontology]['modelseed'] += translations
+            if type == 'SSO':
+                term = genome_dict['ontologies_present']['SSO'][term]
 
-        elif ontology_events[ontology]['id'] == 'keggko':
-            # will move into the 'if' once the dictionary is ready
-            pass
-
-        elif ontology_events[ontology]['id'] == 'metacyc':
-            metacyc_to_modelseed = get_translations('metacyc')
-
-            for term in ontology_events[ontology]['terms']:
+            if type == 'metacyc':
                 if term.startswith("META:"):
                     term = term.replace('META:', '')
 
-                translations = translate(term, metacyc_to_modelseed)
-                ontology_events[ontology]['modelseed'] += translations
+            if term in translations[type]:
+                rxn = translations[type][term]
 
-        elif ontology_events[ontology]['id'] == 'SSO':
-            ec_to_modelseed = get_translations('ec')
-            SSO_to_modelseed = get_translations('SSO')
+                if rxn != None:
+                    if rxn in rxns:
+                        rxns[rxn].add(event['ontology_event'], gene, type, term)
+                    else:
+                        rxns[rxn] = RXN(rxn)
+                        rxns[rxn].add(event['ontology_event'], gene, type, term)
+                else:
+                    rxns['None'].add(event['ontology_event'], gene, type, term)
 
-            sso_dict = genome_dict['ontologies_present']['SSO']
-            for term in ontology_events[ontology]['terms']:
-                SSO = sso_dict[term]
-                if SSO != 'Unknown':
+            else:
+                rxns['None'].add(event['ontology_event'], gene, type, term)
 
-                    translations = translate(SSO, SSO_to_modelseed)
-                    ontology_events[ontology]['modelseed'] += translations
-
+            if getECs: #extract ECs from SSO terms
+                if type == "SSO":
                     # ECs
-                    ecList = search_for_ec(SSO)
+                    ecList = search_for_ec(term)
                     if len(ecList) > 0:
                         for ec in ecList:
-                            translations = translate(ec, ec_to_modelseed)
-                            ontology_events[ontology]['modelseed'] += translations
+                            if ec in translations['ec']:
+                                rxn = translations['ec'][ec]
 
-        ontology_events[ontology]['modelseed'] = sorted(list(set(filter(None, ontology_events[ontology]['modelseed']))))
+                                if rxn != None:
+                                    if rxn in rxns:
+                                        rxns[rxn].add(event['ontology_event'], gene, type, ec)
+                                    else:
+                                        rxns[rxn] = RXN(rxn)
+                                        rxns[rxn].add(event['ontology_event'], gene, type, ec)
+                                else:
+                                    rxns['None'].add(event['ontology_event'], gene, type, ec)
 
-    return(ontology_events)
+                            else:
+                                rxns['None'].add(event['ontology_event'], gene, type, ec)
+
+
+    return(rxns)
+
+
+def search_for_ec(line):
+    ecList = re.findall(r"\(*[0-9]+\.[0-9\-]+\.[0-9\-]+\.[0-9\-]+", line)
+    return(ecList)
+
+def summarize(genes, rxns, ontology_events):
+    summary = {}
+
+    for gene in genes:
+        for event in genes[gene].annotations:
+            term = event['term']
+            event = event['ontology_event']
+
+            if event not in summary:
+                summary[event] = {}
+            if 'gene' not in summary[event]:
+                summary[event]['gene'] = []
+            if 'term' not in summary[event]:
+                summary[event]['term'] = []
+
+            summary[event]['gene'].append(gene)
+            summary[event]['term'].append(term)
+
+            summary[event]['gene'] = list(set(summary[event]['gene']))
+            summary[event]['term'] = list(set(summary[event]['term']))
+
+    for rxn in rxns:
+        for event in rxns[rxn].translations:
+            event = event['ontology_event']
+            if event not in summary:
+                summary[event] = {}
+            if 'rxn' not in summary[event]:
+                summary[event]['rxn'] = []
+
+            if rxn != "None":
+                summary[event]['rxn'].append(rxn)
+
+            summary[event]['rxn'] = list(set(summary[event]['rxn']))
+
+    print("EVENT", "DESCRIPTION", "TYPE", "GENES", "TERMS", "RXNS", sep = "\t")
+    for event in sorted(summary.keys()):
+        description = ontology_events[event]['description']
+        type = ontology_events[event]['id']
+        genes_list = summary[event]['gene']
+        terms_list = summary[event]['term']
+        rxns_list = summary[event]['rxn']
+        print(event, description, type, len(set(genes_list)), len(terms_list), len(rxns_list), sep = "\t")
+
+    return(summary)
+
+def make_table(rxns, ontology_events):
+
+    table = {}
+
+    for rxn in rxns:
+        if rxn != 'None':
+            table[rxn] = {}
+            for event in ontology_events:
+                for translation in rxns[rxn].translations:
+                    if translation['ontology_event'] == event:
+
+                        if event in table[rxn]:
+                            table[rxn][event] += 1
+                        else:
+                            table[rxn][event] = 1
+    print("RXN", end = "")
+    for event in ontology_events:
+        print("\t" + ontology_events[event]['description'], end = "")
+    print()
+    for rxn in sorted(table.keys()):
+        print(rxn, end = "")
+        for event in ontology_events:
+            if event in table[rxn]:
+                print("\t" + str(table[rxn][event]), end = "")
+            else:
+                print("\t0", end = "")
+        print()
+
 
 def convert_modelseed_to_kegg(ontology_events):
     pass
 
-def summarize_ontology_events(ontology_events):
-    print("DESCRIPTION", "GENES", "TERMS", "RXNs", sep = "\t")
-    for ontology in ontology_events:
-        print(ontology_events[ontology]['description'], len(ontology_events[ontology]['genes']), len(ontology_events[ontology]['terms']), len(ontology_events[ontology]['modelseed']), sep = "\t")
-
-def cumulative_sum_curve(ontology_events, type, compare_to):
+def cumulative_sum_curve2(summary, type, compare_to, ontology_events):
 
     csc = open ('csc.txt', 'w')
 
-    working = ontology_events.copy()
+    working = summary.copy()
     cumulative_collection = [] # collection of all previously found items
     csc.write("DESCRIPTION\tADDED\tOVERLAP\tBUFFER\tTOTAL\n")
 
@@ -226,7 +291,7 @@ def cumulative_sum_curve(ontology_events, type, compare_to):
         # remove most abundant
         if abundant_key == "": # if there are ontology events with 0 counts for this type
             for loser in working:
-                csc.write(working[loser]['description'] + "\t" + str(0) + "\t" + str(len(working[loser][type])) + "\t" + str(len(cumulative_collection) - len(working[loser][type])) + "\t" + str(len(cumulative_collection)) + "\n")
+                csc.write(ontology_events[loser]['description'] + "\t" + str(0) + "\t" + str(len(working[loser][type])) + "\t" + str(len(cumulative_collection) - len(working[loser][type])) + "\t" + str(len(cumulative_collection)) + "\n")
             break
 
         else:
@@ -247,10 +312,10 @@ def cumulative_sum_curve(ontology_events, type, compare_to):
     os.system('Rscript csc.R csc.txt ' + csc_filename + " " + csc_title)
     print("\n*** Cumulative sum plot data written to csc.txt and plot written to " + csc_filename + "\n")
 
-def calculate_overlaps(ontology_events, type):
+def calculate_overlaps(summary, type):
     items = {}
-    for ontology in ontology_events:
-        for item in ontology_events[ontology][type]:
+    for ontology in summary:
+        for item in summary[ontology][type]:
             if item in items:
                 items[item].append(ontology)
             else:
@@ -271,50 +336,26 @@ def calculate_overlaps(ontology_events, type):
 ################################################################################
 
 def main():
-    #genome_dict = get_genome()
-    #ontology_events = get_ontology_events(genome_dict)
-    #ontology_events = get_genes_and_terms(genome_dict, ontology_events)
-    #ontology_events = convert_terms_to_modelseed(genome_dict, ontology_events)
 
-    #summarize_ontology_events(ontology_events)
-
-    # new way
+    # Prepare Data
     genome_dict = get_genome()
+    ontology_events = get_ontology_events(genome_dict)
     translations = get_translations2()
-
     genes = {} # holds instances of the Gene class
     rxns = {}  # holds instances of the RXN class
     genes = get_genes_and_terms2(genome_dict, genes)
-    sso_dict = genome_dict['ontologies_present']['SSO']
+    rxns = get_translations(genes, rxns, genome_dict, translations, getECs = True)
 
-    for gene in genes:
-        for event in genes[gene].annotations:
-            term = event['term']
-            type = event['type']
-
-            if type == 'SSO':
-                term = sso_dict[term]
-
-            if type == 'metacyc':
-                if term.startswith("META:"):
-                    term = term.replace('META:', '')
-
-            if term in translations[type]:
-                rxn = translations[type][term]
-
-                if rxn != None:
-                    print(gene, rxn, type, term, sep = "\t")
-
-            else:
-                # terms not in dictionary
-                pass
+    summary = summarize(genes, rxns, ontology_events)
+    #cumulative_sum_curve2(summary, 'gene', 0, ontology_events)
+    #calculate_overlaps(summary, 'rxn')
+    make_table(rxns, ontology_events)
+    #print(ontology_events)
 
 
 
-    # make comparisons
-    #cumulative_sum_curve(ontology_events, 'terms', 0)
-    #calculate_overlaps(ontology_events, 'modelseed')
 
-## RUN
+
+## RUN #########################################################################
 
 main()
