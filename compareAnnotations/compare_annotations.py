@@ -17,9 +17,11 @@ args = parser.parse_args()
 
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-translation_locations = {'ec'     : 'KBaseOntology.OntologyTranslation.EBI_EC.ModelSEED.json',
-                         'keggro' : 'KBaseOntology.OntologyTranslation.KEGG_RXN.ModelSEED.json',
-                         'metacyc' : 'KBaseOntology.OntologyTranslation.Metacyc_RXN.ModelSEED.json'}
+translation_locations = {'ec'      : 'KBaseOntology.OntologyTranslation.EBI_EC.ModelSEED.json',
+                         'keggro'  : 'KBaseOntology.OntologyTranslation.KEGG_RXN.ModelSEED.json',
+                         'keggko'  : 'KBaseOntology.OntologyTranslation.KEGG_KO.ModelSEED.json',
+                         'metacyc' : 'KBaseOntology.OntologyTranslation.Metacyc_RXN.ModelSEED.json',
+                         'SSO'     : 'KBaseOntology.OntologyTranslation.SSO.ModelSEED.json'}
 
 ## FUNCTIONS ###################################################################
 
@@ -34,10 +36,14 @@ def get_translations(type):
 def translate(term, translation_dict):
 
     translations = []
+
     if term in translation_dict:
         full = translation_dict[term]
         for entry in full['equiv_terms']:
             translations.append(entry['equiv_term'])
+    else:
+        # terms not found in the translations - collect these later
+        pass
 
     return(translations)
 
@@ -81,7 +87,7 @@ def convert_terms_to_modelseed(genome_dict, ontology_events):
     for ontology in ontology_events:
         ontology_events[ontology]['modelseed'] = []
 
-        if ontology_events[ontology]['id'] in ['ec', 'keggro']:
+        if ontology_events[ontology]['id'] in ['ec', 'keggro', 'keggko']:
             x_to_modelseed = get_translations(ontology_events[ontology]['id'])
             for term in ontology_events[ontology]['terms']:
                 translations = translate(term, x_to_modelseed)
@@ -103,13 +109,21 @@ def convert_terms_to_modelseed(genome_dict, ontology_events):
 
         elif ontology_events[ontology]['id'] == 'SSO':
             ec_to_modelseed = get_translations('ec')
+            SSO_to_modelseed = get_translations('SSO')
+
             sso_dict = genome_dict['ontologies_present']['SSO']
             for term in ontology_events[ontology]['terms']:
-                if sso_dict[term] != 'Unknown':
-                    ecList = search_for_ec(sso_dict[term])
+                SSO = sso_dict[term]
+                if SSO != 'Unknown':
+
+                    translations = translate(SSO, SSO_to_modelseed)
+                    ontology_events[ontology]['modelseed'] += translations
+
+                    # ECs
+                    ecList = search_for_ec(SSO)
                     if len(ecList) > 0:
-                        for term in ecList:
-                            translations = translate(term, ec_to_modelseed)
+                        for ec in ecList:
+                            translations = translate(ec, ec_to_modelseed)
                             ontology_events[ontology]['modelseed'] += translations
 
         ontology_events[ontology]['modelseed'] = sorted(list(set(filter(None, ontology_events[ontology]['modelseed']))))
@@ -185,7 +199,6 @@ def cumulative_sum_curve(ontology_events, type, compare_to):
     os.system('Rscript csc.R csc.txt ' + csc_filename + " " + csc_title)
     print("\n*** Cumulative sum plot data written to csc.txt and plot written to " + csc_filename + "\n")
 
-
 def calculate_overlaps(ontology_events, type):
     items = {}
     for ontology in ontology_events:
@@ -216,8 +229,8 @@ def main():
     summarize_ontology_events(ontology_events)
 
     # make comparisons
-    #cumulative_sum_curve(ontology_events, 'genes', 0)
-    calculate_overlaps(ontology_events, 'genes')
+    cumulative_sum_curve(ontology_events, 'terms', 0)
+    #calculate_overlaps(ontology_events, 'modelseed')
 
 ## RUN
 
