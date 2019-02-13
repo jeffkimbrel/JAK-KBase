@@ -23,6 +23,24 @@ translation_locations = {'ec'      : 'KBaseOntology.OntologyTranslation.EBI_EC.M
                          'metacyc' : 'KBaseOntology.OntologyTranslation.Metacyc_RXN.ModelSEED.json',
                          'SSO'     : 'KBaseOntology.OntologyTranslation.SSO.ModelSEED.json'}
 
+## CLASSES #####################################################################
+
+class Gene:
+    def __init__(self, id):
+        self.id = id
+        self.annotations = []
+
+    def add(self, ontology_event, type, term):
+        self.annotations.append({"ontology_event" : ontology_event,
+                                           "type" : type,
+                                           "term" : term
+                               })
+
+class RXN:
+    def __init__(self, rxn):
+        self.rxn = rxn
+        self.translations = []
+
 ## FUNCTIONS ###################################################################
 
 def get_genome():
@@ -32,6 +50,21 @@ def get_genome():
 def get_translations(type):
     translations = json.loads(open(translation_locations[type], "r").read() )
     return(translations['translation'])
+
+def get_translations2():
+    translations = {}
+
+    for type in translation_locations:
+        ontology_translations = json.loads(open(translation_locations[type], "r").read() )
+        translations[type] = {}
+
+        for term in ontology_translations['translation']:
+            for entry in ontology_translations['translation'][term]['equiv_terms']:
+                rxn = entry['equiv_term']
+                translations[type][term] = rxn
+
+
+    return(translations)
 
 def translate(term, translation_dict):
 
@@ -78,6 +111,21 @@ def get_genes_and_terms(genome_dict, ontology_events):
                             ontology_events[ont]['terms'].append(entry)
 
     return ontology_events
+
+def get_genes_and_terms2(genome_dict, genes):
+    for feature in genome_dict['features']:
+        gene = feature['id']
+        if 'ontology_terms' in feature:
+            for type in feature['ontology_terms']:
+                for term in feature['ontology_terms'][type]:
+                    for ontology_event in feature['ontology_terms'][type][term]:
+                        if gene in genes:
+                            genes[gene].add(ontology_event, type, term)
+                        else:
+                            genes[gene] = Gene(gene)
+                            genes[gene].add(ontology_event, type, term)
+
+    return(genes)
 
 def search_for_ec(line):
     ecList = re.findall(r"\(*[0-9]+\.[0-9\-]+\.[0-9\-]+\.[0-9\-]", line)
@@ -220,16 +268,51 @@ def calculate_overlaps(ontology_events, type):
     for combo in combinations:
         print(combo, combinations[combo], sep = "\t")
 
-def main():
-    genome_dict = get_genome()
-    ontology_events = get_ontology_events(genome_dict)
-    ontology_events = get_genes_and_terms(genome_dict, ontology_events)
-    ontology_events = convert_terms_to_modelseed(genome_dict, ontology_events)
+################################################################################
 
-    summarize_ontology_events(ontology_events)
+def main():
+    #genome_dict = get_genome()
+    #ontology_events = get_ontology_events(genome_dict)
+    #ontology_events = get_genes_and_terms(genome_dict, ontology_events)
+    #ontology_events = convert_terms_to_modelseed(genome_dict, ontology_events)
+
+    #summarize_ontology_events(ontology_events)
+
+    # new way
+    genome_dict = get_genome()
+    translations = get_translations2()
+
+    genes = {} # holds instances of the Gene class
+    rxns = {}  # holds instances of the RXN class
+    genes = get_genes_and_terms2(genome_dict, genes)
+    sso_dict = genome_dict['ontologies_present']['SSO']
+
+    for gene in genes:
+        for event in genes[gene].annotations:
+            term = event['term']
+            type = event['type']
+
+            if type == 'SSO':
+                term = sso_dict[term]
+
+            if type == 'metacyc':
+                if term.startswith("META:"):
+                    term = term.replace('META:', '')
+
+            if term in translations[type]:
+                rxn = translations[type][term]
+
+                if rxn != None:
+                    print(gene, rxn, type, term, sep = "\t")
+
+            else:
+                # terms not in dictionary
+                pass
+
+
 
     # make comparisons
-    cumulative_sum_curve(ontology_events, 'terms', 0)
+    #cumulative_sum_curve(ontology_events, 'terms', 0)
     #calculate_overlaps(ontology_events, 'modelseed')
 
 ## RUN
