@@ -30,7 +30,8 @@ df.g = df %>%
 df.g.bar = df.g %>% filter(type != "TOTAL")
 df.g.line = df.g %>% filter(type == "TOTAL")
 
-png(file = args[2], height = 700, width = 600)
+#png(file = args[2], height = 700, width = 600)
+pdf(file = args[2], height = 10, width = 7, pointsize = 9)
 ggplot(df.g.bar, aes(x = DESCRIPTION, y = metric, fill = type, color = type)) +
   ggplot_theme() +
   geom_bar(stat = "identity") +

@@ -251,11 +251,17 @@ def make_table(rxns, ontology_events):
 def convert_modelseed_to_kegg(ontology_events):
     pass
 
-def cumulative_sum_curve2(summary, type, compare_to, ontology_events):
+def cumulative_sum_curve2(summary, type, compare_to, ontology_events, ignore = []):
 
     csc = open ('csc.txt', 'w')
 
     working = summary.copy()
+    for ignoreCheck in list(working.keys()):
+        if ignoreCheck in ignore:
+            print("IGNORING ONTOLOGY EVENT:", ignoreCheck)
+            del working[ignoreCheck]
+
+
     cumulative_collection = [] # collection of all previously found items
     csc.write("DESCRIPTION\tADDED\tOVERLAP\tBUFFER\tTOTAL\n")
 
@@ -347,9 +353,9 @@ def main():
     rxns = get_translations(genes, rxns, genome_dict, translations, getECs = True)
 
     summary = summarize(genes, rxns, ontology_events)
-    #cumulative_sum_curve2(summary, 'gene', 0, ontology_events)
+    cumulative_sum_curve2(summary, 'rxn', 0, ontology_events, ignore = [])
     #calculate_overlaps(summary, 'rxn')
-    make_table(rxns, ontology_events)
+    #make_table(rxns, ontology_events)
     #print(ontology_events)
 
 
