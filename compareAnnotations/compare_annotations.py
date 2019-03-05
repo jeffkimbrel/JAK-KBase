@@ -353,7 +353,7 @@ def main():
     rxns = get_translations(genes, rxns, genome_dict, translations, getECs = True)
 
     summary = summarize(genes, rxns, ontology_events)
-    cumulative_sum_curve2(summary, 'rxn', 0, ontology_events, ignore = [])
+    cumulative_sum_curve2(summary, 'gene', 0, ontology_events, ignore = [])
     #calculate_overlaps(summary, 'rxn')
     #make_table(rxns, ontology_events)
     #print(ontology_events)
