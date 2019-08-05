@@ -20,3 +20,6 @@ compareAnnotations/.Rapp.history
 *.pdf
 compareAnnotations/csc.txt
 compareAnnotations/csc.txt
+*.html
+*.pyc
+*.R
