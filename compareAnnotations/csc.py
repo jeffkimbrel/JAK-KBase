@@ -114,7 +114,7 @@ def plot_csc2(summary, summary_type="rxn"):
 
 
 # summary = read_summary("PT19DW.5.json")
-summary = read_summary("summary.json")
+summary = read_summary("PT19DW.7.json")
 
 csc_rxns2 = plot_csc2(summary, "rxns")
 #csc_rxns = plot_csc(summary, "rxn")

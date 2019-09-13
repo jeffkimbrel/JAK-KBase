@@ -104,7 +104,7 @@ def plot_totals(summary):
 
 
 #summary = read_summary("PT19DW.5.json")
-summary = read_summary("summary.json")
+summary = read_summary("PT19DW.7.json")
 
 output_file("totals.html", title="Totals")
 totals = plot_totals(summary)
